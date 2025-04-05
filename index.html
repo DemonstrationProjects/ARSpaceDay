@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./libs/aframe.min.js"></script>
+    <script src="./libs/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+	<style>
+        body { margin: 0; overflow: hidden; }
+        #soundButton {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          padding: 15px 30px;
+          font-size: 20px;
+          background-color: #28a745;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          z-index: 101;
+        }
+        #fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 1;
+            pointer-events: none;
+            transition: opacity 1s ease-in-out;
+            z-index: 100;
+        }
+        #redButton {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background: rgb(241, 88, 88);
+            border: 5px solid white;
+            border-radius: 50%;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            z-index: 10;
+            display: none;
+
+            color: white; 
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+  </head>
+  <body>
+    <div id="fade"></div>
+    <button id="redButton">ПОЕХАЛИ!</button>
+    <button id="soundButton">Включить звук</button>
+    <a-scene 
+      mindar-image="imageTargetSrc: ./targets.mind;" 
+      color-space="sRGB" 
+      renderer="colorManagement: true, physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false"
+      id="scene">
+      <a-assets>
+        <a-asset-item id="avatarModel" src="./Scenes/Cosmo.glb"></a-asset-item>
+      </a-assets>
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-entity mindar-image-target="targetIndex: 0" id="target">
+        <a-entity id="anchor" position="0 0 0" rotation="0 0 0">
+        </a-entity>
+      </a-entity>
+    </a-scene>
+    <audio id="bgSound" loop autoplay>
+      <source src="BGSound.mp3" type="audio/mp3">
+      Ваш браузер не поддерживает элемент audio.
+    </audio>
+    <audio id="startRocketSound">
+      <source src="StartRocket.mp3" type="audio/mp3">
+      Ваш браузер не поддерживает элемент audio.
+    </audio>
+    <script>
+      let clock = new THREE.Clock();
+      let mixer = null;
+      let fade = document.getElementById('fade');
+      let redButton = document.getElementById("redButton");
+      let bgSound = document.getElementById("bgSound");
+      let rocketAnim;
+      let isStart = false;
+      let isFocus = false;
+      let sceneEl = document.querySelector('a-scene');
+
+      let anchorEl = document.querySelector('#anchor');
+      let anchor = anchorEl.object3D;
+      let rocketObject = null;
+
+      const loader = new THREE.GLTFLoader();
+      let anchorPosition = new THREE.Vector3();
+      let anchorRotation = new THREE.Quaternion();
+
+      soundButton.addEventListener("click", () => {
+        soundButton.style.display = 'none';
+        bgSound.volume = 0.2;
+        bgSound.play();
+      });
+
+      loader.load('./Scenes/Cosmo.gltf', (gltf) => {
+        console.log("The model is loaded!");
+          setTimeout(() => { fade.style.opacity = 1;
+            setTimeout(() => { fade.style.opacity = 0; }, 100);
+          }, 1000);
+        rocketObject = gltf.scene;
+        rocketObject.scale.set(500, 500, 500);
+        rocketObject.visible = false;
+        redButton.style.display = "none";
+        mixer = new THREE.AnimationMixer(rocketObject);
+        let clips = gltf.animations;
+
+        if (clips.length > 0) {
+          let Earth = mixer.clipAction(clips[0]);
+          let Letters = mixer.clipAction(clips[1]);
+          rocketAnim = mixer.clipAction(clips[2]);
+          rocketAnim.setLoop(THREE.LoopOnce);
+          Earth.play();
+          Letters.play();
+        } else {
+          console.log("Animation not found");
+        }
+        sceneEl.object3D.add(gltf.scene);
+      }, undefined, (error) => {
+        console.error('Ошибка загрузки модели:', error);
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const target = document.querySelector("#target");
+        target.addEventListener("targetFound", () => {
+          console.log("The target has been found! Starting the animation.");
+          isFocus = true;
+          if(isStart == false) {
+            redButton.style.display = "block";
+          }
+        });
+
+        target.addEventListener("targetLost", () => {
+          console.log("The target is lost! Stop the animation.");
+          isFocus = false;
+          if (rocketObject) {
+              rocketObject.visible = false;
+              redButton.style.display = "none";
+          }
+        });
+      });
+
+      redButton.addEventListener("click", () => {
+        isStart = true;
+        redButton.style.display = "none";
+        let startRocketSound = document.getElementById("startRocketSound");
+        bgSound.volume = 0;
+        startRocketSound.volume = 0.5;
+        startRocketSound.play();
+        setTimeout(() => { rocketAnim.play();}, 3000);
+        setTimeout(GoIn360, 15000);
+      });
+
+      function GoIn360() {
+        fade.style.opacity = 1;
+        setTimeout(() => { window.location.href = 'https://demonstrationprojects.github.io/AirSpaceDay360/';}, 1000);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if(isFocus == false) return;
+        const scene = document.querySelector('a-scene');
+        if (scene && scene.hasLoaded) {
+          scene.render();
+        }        
+        if (mixer) {
+          let delta = clock.getDelta();
+          mixer.update(delta);
+        }
+        if (rocketObject) {
+          anchor.updateMatrixWorld();
+          anchor.getWorldPosition(anchorPosition);
+          rocketObject.position.lerp(anchorPosition, 0.05);
+          
+          if (rocketObject.position.distanceTo(anchorPosition) < 10 && rocketObject.visible == false) {
+              rocketObject.visible = true;
+          }
+
+          if(isNaN(anchorRotation.x) || isNaN(anchorRotation.y) || isNaN(anchorRotation.z) || isNaN(anchorRotation.w)) {
+            let temp = new THREE.Quaternion(); 
+            anchor.getWorldQuaternion(temp);
+            anchorRotation.copy(temp);
+            rocketObject.quaternion.copy(anchorRotation);
+          }          
+          anchor.getWorldQuaternion(anchorRotation);
+          rocketObject.quaternion.slerp(anchorRotation, 0.05);
+        }
+      }
+      animate();
+    </script>
+  </body>
+</html>
