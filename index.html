@@ -190,7 +190,7 @@
           anchor.getWorldPosition(anchorPosition);
           rocketObject.position.lerp(anchorPosition, 0.05);
           
-          if (rocketObject.position.distanceTo(anchorPosition) < 10 && rocketObject.visible == false) {
+          if (rocketObject.position.distanceTo(anchorPosition) < 50 && rocketObject.visible == false) {
               rocketObject.visible = true;
           }
 
